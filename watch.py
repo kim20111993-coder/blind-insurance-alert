@@ -74,6 +74,16 @@ def save(seen):
     temporary.replace(STATE)
 
 
+def app_link(url):
+    """Use Blind's share route; iOS decides whether to hand it to the app."""
+    parts = urlsplit(url)
+    if parts.hostname == "www.teamblind.com" and parts.path.startswith("/kr/post/"):
+        post_id = unquote(parts.path).rsplit("-", 1)[-1]
+        if re.fullmatch(r"[A-Za-z0-9]+", post_id):
+            return "https://www.teamblind.com/kr/s/" + post_id
+    return url
+
+
 def notify(title, message, click=BOARD):
     topic = os.environ.get("NTFY_TOPIC", "").strip()
     if not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", topic):
@@ -83,7 +93,7 @@ def notify(title, message, click=BOARD):
     if token:
         headers["Authorization"] = "Bearer " + token
     body = json.dumps({"topic": topic, "title": title, "message": message,
-                       "click": click, "priority": 3}, ensure_ascii=False).encode("utf-8")
+                       "click": app_link(click), "priority": 3}, ensure_ascii=False).encode("utf-8")
     request = Request("https://ntfy.sh/", data=body, headers=headers, method="POST")
     with urlopen(request, timeout=30) as response:
         response.read()
@@ -91,7 +101,8 @@ def notify(title, message, click=BOARD):
 
 def main():
     if os.environ.get("SEND_TEST", "false").lower() == "true":
-        notify("블라인드 알림 테스트", "GitHub에서 아이폰으로 테스트 알림을 보냈습니다.")
+        notify("블라인드 앱 연결 테스트", "이 알림을 눌러 블라인드 앱에서 게시글이 열리는지 확인합니다.",
+               "https://www.teamblind.com/kr/s/gdbzzh1x")
         print("Test notification sent.")
     posts = fetch_posts()
     if not STATE.exists():
